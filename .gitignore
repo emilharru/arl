@@ -1,0 +1,68 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+.python-version
+
+# Python tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pyre/
+.hypothesis/
+.tox/
+.nox/
+.cache/
+
+# Coverage and test output
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# Build and packaging artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# Local env and secrets
+.env
+.env.*
+!.env.example
+
+# Logs and temp files
+*.log
+*.tmp
+tmp/
+temp/
+
+# Local databases and run state
+*.db
+*.sqlite3
+
+# Jupyter artifacts
+.ipynb_checkpoints/
+
+# Editor and OS artifacts
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# ELD-NAS runtime/generated data and experiment outputs
+artifacts/
+projects/
+data/
+shared/context/
+shared/inbound/
+shared/models/
+shared/outbound/
+shared/proposals/

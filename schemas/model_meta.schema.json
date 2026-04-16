@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://eld-nas.local/schemas/model_meta.schema.json",
+  "title": "ELD-NAS Model Meta (Ultra Minimal)",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "candidate_id",
+    "project_id"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "candidate_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "project_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "target": {
+      "type": "object"
+    },
+    "proposal_mode": {
+      "type": "string",
+      "enum": [
+        "explore",
+        "exploit",
+        "ablation",
+        "retry_after_failure"
+      ]
+    },
+    "model_family": {
+      "type": "string"
+    },
+    "input_contract": {
+      "type": "object"
+    },
+    "output_contract": {
+      "type": "object",
+      "properties": {
+        "returns_logit": {
+          "type": "boolean"
+        },
+        "returns_embedding": {
+          "type": "boolean"
+        },
+        "embedding_dim": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        }
+      }
+    },
+    "intended_hypothesis": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}

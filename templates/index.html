@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auto Research Lab - Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Highlight.js for Code Viewer -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+    <!-- Marked.js for Markdown Rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+
+<body>
+
+    <div class="container">
+        <div class="header-row">
+            <h1>ELD-NAS Execution Dashboard</h1>
+            <button class="btn-new-project" onclick="openModal()">+ New Project</button>
+        </div>
+
+        <div id="projects-container" class="projects-grid">
+            <!-- Injected via JS -->
+        </div>
+
+        <div class="logs-section">
+            <div class="logs-header">
+                <span>Recent Activity Log</span>
+                <span id="last-update" style="font-size: 0.8rem; color: var(--text-muted); font-weight: normal;"></span>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Project</th>
+                        <th>Cycle</th>
+                        <th>Step</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="logs-body">
+                    <!-- Injected via JS -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Modal -->
+        <div id="newProjectModal" class="modal">
+            <div class="modal-content" style="max-width: 600px; width: 90%;">
+                <span class="close" onclick="closeModal()">&times;</span>
+                <h2 style="margin-top:0;">Deploy New ELD-NAS Run</h2>
+
+                <div id="wizardStep1">
+                    <div class="form-group">
+                        <label for="projectName">Project Name:</label>
+                        <input type="text" id="projectName" placeholder="e.g. experiment_alpha" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label for="datasetPath">Dataset Root Path (Absolute)</label>
+                        <select id="datasetPath" class="modal-input" onchange="handleDatasetChange()"
+                            style="background-color: var(--bg-main); color: var(--text-main); border: 1px solid var(--border-color); padding: 8px; border-radius: 4px; width: 100%;">
+                            <option value="">Loading datasets...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="projectDesc">Project Context/Goal:</label>
+                        <textarea id="projectDesc" rows="3"
+                            placeholder="What is the overarching goal of this research project?"
+                            style="width: 100%; box-sizing: border-box; background-color: var(--bg-color); color: var(--text-main); border: 1px solid var(--border-color); padding: 8px 12px; border-radius: 6px; font-family: inherit; resize: vertical;"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="trainProportion">Training Set Proportion (0.01 - 1.0):</label>
+                        <input type="number" id="trainProportion" placeholder="1.0" value="1.0" min="0.01" max="1.0"
+                            step="0.01" style="width: 100%;">
+                    </div>
+                    <div class="form-group">
+                        <label for="ensembleArchitecture">Ensemble Architecture:</label>
+                        <select id="ensembleArchitecture" class="modal-input"
+                            style="background-color: var(--bg-main); color: var(--text-main); border: 1px solid var(--border-color); padding: 8px; border-radius: 4px; width: 100%;">
+                            <option value="default" selected>Default (3-layer MLP)</option>
+                            <option value="simple">Simple (Linear-ReLU-Dropout-Linear)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label style="margin-bottom: 8px;">LLM Routing For This Project:</label>
+                        <div class="start-config-grid">
+                            <div class="start-config-row">
+                                <label for="createDirectorBackend">Director</label>
+                                <select id="createDirectorBackend" class="start-config-select">
+                                    <option value="remote">Remote LLM</option>
+                                    <option value="local">Local LLM</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="start-config-status">Saved at project creation and reused on Start.</div>
+                    </div>
+                    <button id="btnLoadData" class="btn-start" style="width:100%" onclick="loadDatasetContext()">Load
+                        Dataset Context</button>
+                    <div id="loadDataSpinner"
+                        style="display: none; text-align: center; color: var(--text-muted); margin-top: 10px;">Probing
+                        dataset...</div>
+                </div>
+
+                <div id="wizardStep2" style="display: none;">
+                    <hr style="border-color: var(--border-color); margin: 20px 0;">
+                    <p style="color: var(--text-muted); font-size: 0.9em; margin-bottom: 15px;">Please describe the
+                        underlying meaning of the specific features detected in this dataset to help ground the AI.</p>
+
+                    <div id="dynamicSignalsContainer"></div>
+                    <div id="dynamicClassesContainer"></div>
+
+                    <button class="btn-new-project" style="width:100%; margin-top: 15px;"
+                        onclick="submitNewProject()">Create & Run Cycle</button>
+                </div>
+            </div>
+        </div>
+        <!-- Data Explorer Modal -->
+        <div id="dataExplorerModal" class="modal">
+            <div class="modal-content" style="max-width: 95%; width: 95%;">
+                <span class="close" onclick="closeDataExplorerModal()">&times;</span>
+                <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 20px;">
+                    <h2 style="margin: 0;" id="exploreProjectName" data-project="">Explore Data Title</h2>
+                    <div style="font-size: 1.1em; display: flex; align-items: center; gap: 15px;">
+                        <div>
+                            <span style="color: var(--text-muted)">Sample:</span> <span id="exploreSampleIdx"
+                                style="font-weight: bold;">-</span>
+                        </div>
+                        <div>
+                            <span style="color: var(--text-muted)">Label (Y):</span> <span id="exploreLabel"
+                                style="font-weight: bold; color: var(--accent-yellow);"></span>
+                        </div>
+                        <button class="btn-new-project" style="padding: 5px 10px; font-size: 0.9em;"
+                            onclick="openDataExplorer(document.getElementById('exploreProjectName').getAttribute('data-project'))">Random
+                            Sample</button>
+                    </div>
+                </div>
+
+                <div id="exploreLoading" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                    Fetching data slice...
+                </div>
+
+                <div id="exploreContent"
+                    style="display: none; flex-direction: column; gap: 20px; max-height: 60vh; overflow-y: auto;">
+                    <!-- Canvases injected here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Model Explorer Modal -->
+        <div id="modelExplorerModal" class="modal">
+            <div class="modal-content" style="max-width: 900px; width: 95%;">
+                <span class="close" onclick="closeModelExplorer()">&times;</span>
+                <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 20px;">
+                    <h2 style="margin: 0;" id="modelProjectName" data-project="">Model Explorer</h2>
+                    <button class="btn-test-set" style="padding: 6px 12px;" onclick="openModelHistoryFromExplorer()">Model History</button>
+                </div>
+
+                <div id="modelLoading"
+                    style="text-align: center; padding: 40px; color: var(--text-muted); display: none;">
+                    Fetching expert matrix...
+                </div>
+
+                <div id="modelContent" style="display: none; flex-direction: column; gap: 20px; overflow-x: auto;">
+                    <p style="color: var(--text-muted); font-size: 0.9em;">Click on any cell to view detailed expert
+                        information.</p>
+                    <div id="modelGridContainer">
+                        <!-- Grid injected here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Model History Modal -->
+        <div id="modelHistoryModal" class="modal" style="z-index: 1002;">
+            <div class="modal-content" style="max-width: 1200px; width: 96%;">
+                <span class="close" onclick="closeModelHistoryModal()">&times;</span>
+                <h3 id="modelHistoryTitle" style="margin-top: 0; margin-bottom: 10px;">Model History</h3>
+
+                <div id="modelHistoryLoading" style="text-align: center; padding: 40px; color: var(--text-muted); display: none;">
+                    Loading per-cycle expert performance...
+                </div>
+
+                <div id="modelHistoryContent" style="display: none;">
+                    <p style="color: var(--text-muted); font-size: 0.9em; margin-top: 0;">
+                        X-axis shows cycle number. Expert lines show best-so-far F1. Circle markers show the F1 of models trained in that cycle. Ensemble plot shows Cohen's kappa.
+                    </p>
+                    <div id="modelHistoryEnsemble" class="model-history-ensemble">
+                        <!-- Ensemble chart injected here -->
+                    </div>
+                    <div class="model-history-grid-wrap">
+                        <div id="modelHistoryExpertsGrid" class="model-history-grid">
+                            <!-- Expert charts injected here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Model Detail Modal -->
+        <div id="modelDetailModal" class="modal" style="z-index: 1001;">
+            <div class="modal-content"
+                style="max-width: 600px; width: 90%; background-color: #161b22; border: 1px solid var(--border-color);">
+                <span class="close" onclick="closeModelDetail()">&times;</span>
+                <h3 id="modelDetailTitle" style="margin-top: 0; margin-bottom: 15px;">Expert Detail</h3>
+                <div id="modelDetailContent" style="color: var(--text-muted); font-size: 0.95em; line-height: 1.5;">
+                    <!-- Details injected here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Ensemble Detail Modal -->
+        <div id="ensembleDetailModal" class="modal" style="z-index: 1002;">
+            <div class="modal-content"
+                style="max-width: 800px; width: 95%; background-color: #161b22; border: 1px solid var(--border-color);">
+                <span class="close" onclick="closeEnsembleDetail()">&times;</span>
+                <h3 id="ensembleDetailTitle"
+                    style="margin-top: 0; color: var(--accent-purple); border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
+                    Ensemble Model Performance</h3>
+
+                <div style="display: flex; gap: 20px; margin: 20px 0;">
+                    <div
+                        style="flex: 1; background: var(--bg-dark); padding: 15px; border-radius: 6px; border: 1px solid var(--border-color); text-align: center;">
+                        <div style="color: var(--text-muted); font-size: 0.9em; text-transform: uppercase;">Overall
+                            Accuracy</div>
+                        <div id="ensembleAccuracyVal"
+                            style="font-size: 1.8em; font-weight: bold; color: var(--accent-blue); margin-top: 5px;">-
+                        </div>
+                    </div>
+                    <div
+                        style="flex: 1; background: var(--bg-dark); padding: 15px; border-radius: 6px; border: 1px solid var(--border-color); text-align: center;">
+                        <div style="color: var(--text-muted); font-size: 0.9em; text-transform: uppercase;">Cohen's
+                            Kappa</div>
+                        <div id="ensembleKappaVal"
+                            style="font-size: 1.8em; font-weight: bold; color: var(--accent-green); margin-top: 5px;">-
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 20px;">
+                    <h4 style="color: var(--text-main); margin-bottom: 10px;">Confusion Matrix</h4>
+                    <div style="overflow-x: auto;">
+                        <table id="ensembleConfMatrix"
+                            style="width: 100%; border-collapse: collapse; text-align: center; font-variant-numeric: tabular-nums;">
+                            <!-- Injected dynamically -->
+                        </table>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 style="color: var(--text-main); margin-bottom: 10px;">Per-Class Metrics</h4>
+                    <div style="overflow-x: auto;">
+                        <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                            <thead>
+                                <tr style="border-bottom: 1px solid var(--border-color); color: var(--text-muted);">
+                                    <th style="padding: 8px;">Class</th>
+                                    <th style="padding: 8px;">F1-Score</th>
+                                    <th style="padding: 8px;">Precision</th>
+                                    <th style="padding: 8px;">Recall</th>
+                                    <th style="padding: 8px;">Support</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ensembleClassReportRows">
+                                <!-- Injected dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Live Training Modal -->
+        <div id="liveTrainingModal" class="modal" style="z-index: 1003;">
+            <div class="modal-content"
+                style="max-width: 800px; width: 95%; background-color: #161b22; border: 1px solid var(--border-color);">
+                <span class="close" onclick="closeLiveTraining()">&times;</span>
+                <h3 id="liveTrainingTitle"
+                    style="margin-top: 0; color: var(--accent-blue); border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
+                    🔴 Live Training Telemetry</h3>
+                <div style="font-size: 0.9em; color: var(--text-muted); margin-bottom: 20px;">Watching for real-time
+                    loss and accuracy emitted by active training loops.</div>
+                <div class="chart-container"
+                    style="position: relative; height:400px; width:100%; border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; background-color: var(--bg-dark);">
+                    <canvas id="liveChart"></canvas>
+                </div>
+
+                <div style="margin-top: 20px; overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9em;">
+                        <thead>
+                            <tr style="border-bottom: 1px solid var(--border-color); color: var(--text-muted);">
+                                <th style="padding: 10px 8px;">Epoch</th>
+                                <th style="padding: 10px 8px;">Train Loss</th>
+                                <th style="padding: 10px 8px;">Val Loss</th>
+                                <th style="padding: 10px 8px;">F1-Score</th>
+                                <th style="padding: 10px 8px;">Precision</th>
+                                <th style="padding: 10px 8px;">Recall</th>
+                                <th style="padding: 10px 8px;">Accuracy</th>
+                            </tr>
+                        </thead>
+                        <tbody id="liveTrainingTableBody">
+                            <!-- Injected dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Model Code Viewer Modal -->
+    <div id="modelCodeModal" class="modal" style="z-index: 1002;">
+        <div class="modal-content"
+            style="max-width: 800px; width: 90%; background-color: #0d1117; border: 1px solid var(--border-color);">
+            <span class="close" onclick="closeCodeViewer()">&times;</span>
+            <h3 id="modelCodeTitle" style="margin-top: 0; margin-bottom: 15px; color: var(--accent-blue);">File Viewer
+            </h3>
+            <div id="modelCodeLoading"
+                style="text-align: center; padding: 20px; color: var(--text-muted); display: none;">
+                Loading file...
+            </div>
+            <pre
+                style="margin: 0; border: 1px solid var(--border-color); border-radius: 6px; padding: 0;"><code id="modelCodeContent" style="border-radius: 6px;"></code></pre>
+        </div>
+    </div>
+
+    <!-- Cycle Detail Modal -->
+    <div id="cycleDetailModal" class="modal" style="z-index: 1003;">
+        <div class="modal-content"
+            style="max-width: 1200px; width: 95%; height: 85vh; display: flex; flex-direction: column; background-color: #0d1117; border: 1px solid var(--border-color); padding: 20px;">
+            <span class="close" onclick="closeCycleDetail()"
+                style="position: absolute; right: 20px; top: 15px;">&times;</span>
+            <div style="margin-bottom: 20px;">
+                <h3 id="cycleDetailTitle" style="margin: 0; color: var(--text-main);">Cycle Activity</h3>
+                <div style="font-size: 0.9em; color: var(--text-muted);" id="cycleDetailSubtitle"></div>
+            </div>
+
+            <div
+                style="display: flex; flex: 1; min-height: 0; border: 1px solid var(--border-color); border-radius: 6px; overflow: hidden;">
+                <!-- Sidebar -->
+                <div id="cycleFileSidebar"
+                    style="width: 250px; background-color: var(--card-bg); border-right: 1px solid var(--border-color); overflow-y: auto; display: flex; flex-direction: column; padding: 10px; gap: 5px;">
+                    <div style="text-align: center; padding: 20px; color: var(--text-muted);">Loading files...</div>
+                </div>
+
+                <!-- Main Viewer Area -->
+                <div style="flex: 1; background-color: var(--bg-main); overflow-y: auto; padding: 20px;"
+                    id="cycleFileViewer">
+                    <div style="text-align: center; padding: 40px; color: var(--text-muted);">Select a file from the
+                        sidebar to view its contents.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Project Detail Modal -->
+    <div id="projectDetailModal" class="modal" style="z-index: 1004;">
+        <div class="modal-content"
+            style="max-width: 900px; width: 95%; height: 85vh; display: flex; flex-direction: column; background-color: #0d1117; border: 1px solid var(--border-color); padding: 30px;">
+            <span class="close" onclick="closeProjectDetails()"
+                style="position: absolute; right: 20px; top: 15px;">&times;</span>
+            <div style="margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid var(--border-color);">
+                <h3 id="projectDetailTitle" style="margin: 0; color: var(--text-main); font-size: 1.5em;">Project
+                    Details</h3>
+            </div>
+            <div class="project-detail-controls">
+                <label for="projectEndTimeInput" style="color: var(--text-muted); font-weight: 600;">End Time</label>
+                <input id="projectEndTimeInput" type="datetime-local" class="project-end-time-input">
+                <button id="projectEndTimeSaveBtn" class="btn-new-project" style="padding: 6px 12px;" onclick="saveProjectEndTime()">Save</button>
+                <span id="projectEndTimeStatus" class="project-end-time-status">Loading...</span>
+            </div>
+            <div id="projectDetailViewer" class="markdown-body"
+                style="flex: 1; overflow-y: auto; color: var(--text-main); line-height: 1.6; padding-right: 15px;">
+                <div style="text-align: center; padding: 40px; color: var(--text-muted);">Loading project context...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}?v={{ js_asset_version | default('1') }}"></script>
+</body>
+
+</html>
