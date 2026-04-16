@@ -21,15 +21,6 @@ System overview (paper Figure 2):
 
 ![System overview](media/system_overview.png)
 
-## Paper
-
-This repository implements the system described in:
-
-Emil Hardarson, Luka Biedebach, Omar Bessi Omarsson, Teitur Hrolfsson, Anna Sigridur Islind, Maria Oskarsdottir.
-"Data-Local Autonomous LLM-Guided Neural Architecture Search for Multiclass Multimodal Time-Series Classification."
-arXiv:2603.15939, 2026.
-
-Link: https://arxiv.org/abs/2603.15939
 
 
 
